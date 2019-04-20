@@ -1,0 +1,934 @@
+---
+title: "email-exploratory-data-analysis"
+author: "shobha mourya"
+date: "March 3, 2019"
+output: 
+  html_document:
+    toc: true
+    number_sections: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Exploratory Data Analysis of email dataset
+
+EDA (exploratory data analysis) in exploring a new dataset
+
+* the email data set contains information on all the emails received by a single email account in a single month
+* each email is a case
+
+
+
+- the email dataset has 3921 emails from a single account in a month
+
+## Data Analysis Objective
+
+Understand what each of the variables mean from the help file
+
+* one of your guiding questions throughout
+the chapter is - what characteristics of an email
+are associated with it being spam or not-spam
+
+## Summaries
+
+Numerical and graphical summaries are a great way
+to start answering that question
+
+## Graphical Tools
+
+Let's review the main graphical tools that we have
+for numerical data
+
+### Histograms 
+
+1. take continuous data and aggregate it into bins
+then draw a bar to the height that corresponds 
+to the number of cases in that bin
+2. they have a tuning parameter that you should
+play with, the binwidth, to explore the shape of the
+distribution at different scales
+3. if you are interested in building histograms
+broken down based on a categorical variable they
+are good candidate for faceting, which can be
+done with the facet wrap layer
+
+
+**ggplot(data, aes(x = var1)) +
+geom_histogram() +
+facet_wrap(~var2)**
+
+### Boxplots 
+
+1. excel at comparing multiple distributions
+2. ggplot requires that you put something on the x-axis
+3. if var2 of x-axis has two levels you will get two side-by-side boxplots
+4. the boxplot uses robust measures, the median and the IQR, to draw the box
+and it also flags potential outliers for you
+5. the downside however is that it can hide more complicated shapes such as 
+the bimodal distribution
+6. to get a single boxplot you just map x to number 1
+
+**ggplot(data, aes(x = var2, y = var1)) +
+geom_boxplot()**
+
+
+### Density plots
+
+1. summarize the data by drawing a smooth line
+to represent its shape
+2. similar to histograms, you can change the smoothness
+of the graph by changing the biwidth parameter
+3. which you can then add to the geom_density function
+4. these can be faceted just like histograms
+or they can be overlaid on one another by mapping
+the colour of fill of the distribution to a second
+variable
+5. if you want the colour to be somewhat transparent
+specify an alpha parameter between 0 and 1
+
+**ggplot((data, aes(x = var)) +
+  geom_density()**
+
+Load the R libraries
+
+```{r}
+library(readr)
+library(ggplot2)
+library(dplyr)
+library(openintro)
+
+# email dataset in openintro
+str(email)
+
+glimpse(email)
+
+```
+
+## Variables
+
+**spam and num_char**
+Is there an association between spam and the length of an email?
+You could imagine a story either way:
+Spam is more likely to be a short message tempting me to click on alink, or
+My normal email is likely shorter since I exchange brief emails with my friends 
+all the time
+
+Here, you'll use the email dataset to settle that question.
+
+Begin by bringing up the help file and learning about all the variables with
+
+```{r eval=FALSE}
+?email
+```
+
+**Description**
+
+These data represent incoming emails for the first three months of 2012 for an 
+email account (see Source).
+
+Usage
+
+data(email)
+data(email_test)
+Format
+
+A email (email_sent) data frame has 3921 (1252) observations on the following 
+21 variables.
+
+### spam
+Indicator for whether the email was spam.
+
+### to_multiple
+Indicator for whether the email was addressed to more than one recipient.
+
+### from
+Whether the message was listed as from anyone (this is usually set by default for 
+regular outgoing email).
+
+### cc
+Indicator for whether anyone was CCed.
+
+### sent_email
+Indicator for whether the sender had been sent an email in the last 30 days.
+
+### time
+Time at which email was sent.
+
+### image
+The number of images attached.
+
+### attach
+The number of attached files.
+
+### dollar
+The number of times a dollar sign or the word “dollar” appeared in the email.
+
+### winner
+Indicates whether “winner” appeared in the email.
+
+### inherit
+The number of times “inherit” (or an extension, such as “inheritance”) appeared 
+in the email.
+
+### viagra
+The number of times “viagra” appeared in the email.
+
+### password
+The number of times “password” appeared in the email.
+
+### num_char
+The number of characters in the email, in thousands.
+
+### line_breaks
+The number of line breaks in the email (does not count text wrapping).
+
+### format
+Indicates whether the email was written using HTML (e.g. may have included bolding or active links).
+
+### re_subj
+Whether the subject started with “Re:”, “RE:”, “re:”, or “rE:”
+
+### exclaim_subj
+Whether there was an exclamation point in the subject.
+
+### urgent_subj
+Whether the word “urgent” was in the email subject.
+
+### exclaim_mess
+The number of exclamation points in the email message.
+
+### number
+Factor variable saying whether there was no number, a small number (under 1 million), or a big number.
+
+As you explore the association between spam and the length of an email, use this opportunity to try out linking a dplyr chain with the layers in a ggplot2 object
+
+# Proportion of spam vs not-spam
+
+```{r}
+names(email)
+glimpse(email)
+table(email$spam)
+prop.table(table(email$spam))*100
+```
+
+**only 9% emails were spam**
+
+## Explore num_char feature
+
+```{r}
+str(email$num_char)
+
+summary(email$num_char)
+
+nrow(email)
+
+# Start by exploring num_char feature
+str(email$num_char)
+summary(email$num_char)
+
+```
+
+**Unit is in thousands**
+
+**Visualizations for numeric variable num_char**
+
+Compute appropriate measures of the center and spread
+of num_char for both spam and non-spam using group_by()
+and summarize().
+No need to name the new columns created by summarize()
+
+### Boxplot
+
+Boxplot for numeric variable num_char, y-axis has the measures of center and spread
+and x-axis is set to 1 as we're not plotting multiple boxplots for num_char based on 
+a particular categorical variable.
+
+```{r}
+email %>% 
+  ggplot(aes(x=1, y = num_char)) +
+  geom_boxplot()
+
+
+# Boxplot show many outliers, so taking log of num_char
+
+email %>% 
+  ggplot(aes(x=1, y = log(num_char + 0.01))) +
+  geom_boxplot()
+
+```
+
+
+Boxplot also shows many outliers on the lower side, so there are
+extreme values at the left and mean,sd will be affected by these extreme values.
+Let's check with density plot
+
+### Density Plot
+
+```{r}
+email %>% ggplot(aes(x = log(num_char + 0.01))) +
+  geom_density()
+```
+
+The density plot shows there are more than one peaks, bimodal distribution
+and there are extremed values
+so let's use median and IQR
+
+
+### Measures of Center and Spread
+
+
+**median and IQR for spam and non-spam messages**
+
+```{r}
+email %>% 
+  group_by(spam) %>%
+  summarise(median(num_char), IQR(num_char))
+```
+
+**It appears spam messages are shorter than ham messages**
+
+### Side-by-side boxplot for spam and not-spam wrt num_char
+
+Construct side-by-side box plots to visualize the association between the same two variables. It will be useful to mutate() a new column containing a log-transformed version of num_char.
+
+```{r}
+email = email %>%
+  mutate(log_num_char = log(num_char + 0.01))
+
+names(email)
+
+# boxplot for num_char based on spam or not
+
+ggplot(email, aes(x = as.factor(spam), y = log_num_char)) +
+  geom_boxplot()
+
+```
+
+### Interpretation
+
+The boxplot shows that median length of not-spam emails is greater than that of spam emails
+
+
+## Explore exclaim_ness feature 
+
+Lets look at a more obvious indicator of spam: exclamation marks
+* exclaim_mess contains the number of exclamation marks in each message
+* using summary statistics and visualization, see if there is a relationship between this variable and whether or not a message is spam
+
+Experiment with different types of plots until you find one that is the most informative.
+
+Recall that you've seen:
+
+* side-by-side box plots
+* faceted histograms
+* overlaid density plots
+
+```{r}
+names(email)
+str(email$exclaim_mess)
+summary(email$exclaim_mess)
+```
+
+### Overlaid density plot
+
+Construct an appropriate plot to visualize the 
+association between the same two variables, adding in a
+log-transformation step if necessary.
+
+```{r}
+# overlaid density plot
+email %>% ggplot(aes(x = exclaim_mess, fill = as.factor(spam))) +
+  geom_density()
+
+
+# Since the plot is not clear, use the log transformed values
+email %>% ggplot(aes(x = log(exclaim_mess + 0.01), fill = as.factor(spam))) +
+  geom_density()
+
+
+```
+
+### log(0) correction
+
+log(0) is -Inf and these values get ignored.
+If you decide to use a log transformation, 
+remember that log(0) is -Inf in R, which isn't a very 
+useful value! You can get around this by adding a small 
+number (like .01) to the quantity inside the log() function. 
+This way, your value is never zero. This small shift to the 
+right won't affect your results.
+
+Let's create a new variable for log transformed values
+
+
+```{r}
+# creating a log transformed variable for exclaim_mess 
+email = email %>% 
+  mutate(log_exclaim_mess = log(exclaim_mess + 0.01))
+
+names(email)
+
+# use the new log transformed variable 
+email %>% 
+  ggplot(aes(x = log_exclaim_mess, fill = as.factor(spam))) +
+  geom_density()
+```
+
+### Histogram
+
+```{r}
+
+# histogram 
+email %>% 
+  ggplot(aes(x = exclaim_mess, fill = as.factor(spam))) +
+  geom_histogram() + 
+  facet_wrap(~spam, labeller = label_both)
+
+# Since the plot is not clear, use the log transformed values
+email %>% ggplot(aes(x = log(exclaim_mess), fill = as.factor(spam))) +
+  geom_histogram(binwidth = 5) + 
+  facet_wrap(~spam, labeller = label_both)
+
+
+# since we're losing many rows, let's use log_exclaim_mess which
+# avoild -Inf values for log(0) by adding 0.01 to exclaim_mess values
+
+email %>% ggplot(aes(x = log_exclaim_mess, fill = as.factor(spam))) +
+  geom_histogram(binwidth = 5) + 
+  facet_wrap(~spam,labeller = label_both)
+
+```
+
+
+### Boxplot
+
+```{r}
+# boxplot 
+email %>% ggplot(aes(x = as.factor(spam), y = exclaim_mess )) +
+  geom_boxplot()
+
+
+# Since the plot is not clear, use the log transformed values
+email %>% ggplot(aes(x = as.factor(spam), y = log(exclaim_mess) )) +
+  geom_boxplot()
+
+# since we're losing many rows, let's use log_exclaim_mess which
+# avoild -Inf values for log(0) by adding 0.01 to exclaim_mess values
+email %>% ggplot(aes(x = as.factor(spam), 
+                     y = log_exclaim_mess, 
+                     fill = as.factor(spam))) +
+  geom_boxplot()
+```
+
+### side-by-side boxplot exclaim_ness for spam and not-spam 
+
+
+Calculate appropriate measures of the center and spread of
+exclaim_mess for both spam and not-spam using group_by() and 
+summarize()
+
+
+Observations:
+The density plot shows that the distribution for exclaim_mess
+is bimodal - two peaks for spam and one peak for not-spam
+
+Histogram shows exclaim count lower for spams
+
+Side-by-side boxplots show median of not-spam higher than the
+max of spam
+
+* there are no extreme values so we can use mean and sd as measure of centre and spread
+
+```{r}
+email %>% 
+  group_by(spam) %>% 
+  summarise(mean(exclaim_mess), sd(exclaim_mess))
+
+# Final solution:
+
+# Compute center and spread for exclaim_mess by spam
+email %>% 
+  group_by(spam) %>% 
+  summarise(mean(exclaim_mess), sd(exclaim_mess))
+
+
+# Create plot for spam and exclaim_mess
+email %>% ggplot(aes(x = log(exclaim_mess + 0.01), fill = as.factor(spam))) +
+  geom_histogram(binwidth = 5) + 
+  facet_wrap(~spam, labeller = label_both) 
+
+```
+
+### Spam and !!! interpretation
+
+Which interpretation of these faceted histograms is not correct?
+{
+  Note not correct!
+}
+
+The most common value of exclaim_mess in both classes of 
+email is zero (a log(exclaim_mess) of -4.6 after adding .01).
+
+There are more cases of spam in this dataset than not-spam.
+(Answer)
+
+Even after a transformation, the distribution of exclaim_mess 
+in both classes of email is right-skewed.
+
+The typical number of exclamations in the not-spam group appears 
+to be slightly higher than in the spam group.
+
+### zero inflation strategies
+
+
+Let's review what you learned in last several exercises
+
+* side-by-side boxplots show whether or not an email is spam
+* and the length of the emails is measured by log number of characters
+num_char
+* in this case a typical spam message is considerably shorter than the
+non-spam messages
+* but still there is a considerable amount of overlap in the two
+distributions of length
+* when you looked at the distribution of spams and exclamation marks used
+you saw that both distributions are heavily right-skewed
+* there are only a few instances of many exclamation marks being
+used and many more of 0 or 1 being used
+* it also bucks the expectation that spam messages will be filled with
+emphatic exclamation marks to entice you to click on their links
+* here it's actually not-spam that has more exclamation marks
+
+zero inflation strategies
+
+* the dominant feature of the exclaim_ness feature though is the 
+large proportion of cases that report 0 or -4.6 on the log scale
+* this is a common occurence in data analysis that is often termed
+zero inflation
+
+### Strategy one
+
+Analyze the two components separately
+
+* and there are several common ways to think about those zeros
+* one approach says there are two mechanisms going on
+* one generating the zeros and the other generating the non-zeroes
+* so we will analyse those two groups separately
+
+### Strategy two
+
+Collapse into two-level categorical variables
+One approach is to think of the variable actually taking on only two
+values zero or not-zero
+
+* and treating it like a categorical variable
+* if you take this approach the first step is to mutate this variable
+* here our condition is simply that exclaim_ness is zero
+then we can pipe that new variable into a barchart and facet it
+based on spam
+* in the resulting plot, yes, we have lost a lot of the information
+but its become very clear that spam is likely to contain no 
+exclamation marks while in spam opposite is true
+
+
+```{r}
+# Stragegy two - how many zero exclamations and opposite
+table(email$exclaim_mess)
+
+```
+
+You see that the highest frequency is for zero exclamations, 1435 
+while others are in single digits
+
+```{r}
+# mutate a categorical variable based on condition that exclaim_mess
+# is 0 and plot a barchart facetted by spam
+email %>% 
+  mutate(zero = exclaim_mess == 0) %>%
+  ggplot(aes(x = zero)) +
+  geom_bar() +
+  facet_wrap(~spam)
+
+```
+
+Using stacked barchart - showing the break up in same bar using fill
+instead of faceted graphs for each label category
+
+```{r}
+email %>%
+  mutate(zero = exclaim_mess == 0) %>%
+  ggplot(aes(x = zero, fill = as.factor(spam))) +
+  geom_bar()
+```
+
+
+The other consideration is whether you want counts or proportions
+
+* proportions have same bar height 
+* if the later then you have to normalize the chart
+which you can do by adding the position = fill argument in geom
+along with setting it in aes
+
+
+```{r}
+email %>%
+  mutate(zero = exclaim_mess == 0) %>%
+  ggplot(aes(x = zero, fill = as.factor(spam))) +
+  geom_bar(position = "fill")
+```
+
+
+## Explore images feature
+
+
+Collapsing levels
+
+* if it was difficult to work with the heavy skew of exclaim_mess
+the number of images attached to each email (image) poses 
+even more of a challenge
+* Run the following code at the console to get a sense of its
+distribution
+
+
+```{r}
+str(email$image)
+
+table(email$image)
+
+summary(email$image)
+
+```
+
+There are far more emails without images 3811, maximum with one image is 76 and fewer thereafter.
+
+Given the very low counts at the higher number of images 
+
+* let's collapse image into a categorical variable that indicates
+whether or not the email had at least one image.
+In this exercise, you'll create this new variable and explore its 
+association with spam.
+
+
+Starting with email, form a continuous chain that links together 
+the following tasks:
+
+Create a new variable has_image that is TRUE where the number of images
+is greater than zero and FALSE otherwise
+
+Create an appropriate plot with email to visualize the relationship
+between has_image and spam
+
+```{r}
+email %>% 
+  mutate(has_image = image > 0) %>%
+  ggplot(aes(x = has_image, fill = as.factor(spam))) +
+  geom_bar(position =  "fill") 
+```
+
+### Image and spam interpretation:
+
+Which of the following interpretations of the plot is valid?
+
+There are more emails with images than without images.
+
+Emails with images have a higher proportion 
+that are spam than do emails without images.
+
+An email without an image is more likely to be not-spam than spam.
+(Answer)
+
+
+Data Integrity
+In the process of exploring a dataset, you'll sometimes come
+across something that will lead you to question how the data were
+compiled.
+For example, the variable num_char contains the number of characters
+in the email, in thousands, so it could take decimal values,
+but it certainly shouldn't take negative values.
+
+You can formulate a test to ensure this variable is behaving as
+we expect:
+
+
+```{r}
+email$num_char < 0
+```
+
+If you run this code at the console, you'll get a long vector of 
+logical values indicating for each case in the dataset whether 
+that condition is TRUE. Here, the first 1000 values all appear 
+to be FALSE. To verify that all of the cases indeed have non-negative 
+values for num_char, we can take the sum of this vector:
+
+
+```{r}
+sum(email$num_char < 0)
+```
+
+This is a handy shortcut. When you do arithmetic on logical values, 
+R treats TRUE as 1 and FALSE as 0. Since the sum over the whole 
+vector is zero, you learn that every case in the dataset took a 
+value of FALSE in the test. That is, the num_char column is behaving 
+as we expect and taking only non-negative values.
+
+
+## Explore attach feature
+
+Consider the variables image and attach. You can read about them with
+?email, but the help file is ambiguous: do attached images count as 
+attached files in this dataset?
+
+Design a simple test to determine if images count as attached files.
+This involves creating a logical condition to compare the values of the 
+two variables, then using sum() to assess every case in the dataset.
+Recall that the logical operators are:
+
+  < for less than 
+  <= for less than or equal to
+  > for greater than
+  >= for greater than or equal to and 
+  == for equal to
+
+```{r}
+unique(email$image)
+
+unique(email$attach)
+
+# Test if images count as attachments
+" 
+If image count is greater than attachment, it indicates that image is not counted as attachment. 
+"
+sum(email$image > email$attach)
+
+```
+
+Since image is never greater than attach, we can infer that images are counted as attachments.
+
+
+## Explore to_multiple feature
+
+Answering questions with chains
+
+When you have a specific question about a dataset 
+
+* you can find your way to an answer by carefully constructing the 
+appropriate chain of R code.
+
+For example consider the following question:
+
+* Within non-spam emails, is the typical length of emails shorter for
+those that were sent to multiple people?
+
+```{r}
+str(email$to_multiple)
+unique(email$to_multiple)
+
+# median length of spam messages sent to multiple people
+email %>% 
+  filter(spam == 0) %>%
+  group_by(to_multiple) %>%
+  summarise(median(num_char)) 
+```
+
+Yes - the typical length of non-spam sent to multiple people
+is a bit lower than those sent to only one person.
+
+This chain concluded with summary statistics, but others might end
+in a plot; it all depends on the question that you're trying to answer.
+
+```{r}
+email %>% 
+  filter(spam == 0) %>%
+  ggplot(aes(x = as.factor(to_multiple) , 
+             y = log(num_char + 0.01), 
+             fill = as.factor(to_multiple))) + 
+  geom_boxplot()
+```
+
+## Explore dollar feature
+
+Build a chain to answer each of the following questions,
+both about the variable dollar
+
+For emails containing the word 'dollar' does the typical spam
+email contain a greater number of occurences of the word than 
+the typical non-spam email?
+Create a summary statistic that answers this question.
+
+
+
+```{r}
+head(email$dollar)
+str(email$dollar)
+length(unique(email$dollar))
+summary(email$dollar)
+
+# dollar is numeric so density plot
+ggplot(email, aes(x=log(dollar + 0.01))) + 
+  geom_density() 
+
+ggplot(email, aes(x= dollar)) + 
+  geom_histogram(binwidth = 5) 
+
+#Clearly there a lot of emails with zero dollar words, lets split by spam
+ggplot(email, aes(x= dollar, fill = as.factor(spam))) + 
+  geom_histogram(binwidth = 5) 
+
+email %>% 
+  filter(dollar > 10) %>%
+  group_by(spam) %>%
+  summarise(n())
+
+email %>% 
+  filter(dollar > 10) %>%
+  ggplot(aes(x = as.factor(spam))) +
+  geom_bar()
+
+```
+
+** So, not-spam emails are more likely to have the dollar word**
+
+Let's revisit the exercise where you explored the whether an email has an image and whether it is a spam.
+
+```{r}
+#barchart of proportions
+email %>%
+  mutate(has_image = image >0) %>%
+  ggplot(aes(x = as.factor(has_image), fill = as.factor(spam))) +
+  geom_bar(position = "fill")
+```
+
+Subtle and important distinction between proportions like the above barchart with proportions for spam or non-spam
+
+* conditioned on has_image variable
+* we get a different story if we condition our variable on spam
+* amongst the emails that are spam almost none of them have an image
+
+Ordering bars
+
+* to make barcharts readily interpretable
+* recall creating variable zero for zero exclamations marks 
+
+```{r}
+email = email %>%
+  mutate(zero = exclaim_mess == 0)
+
+levels(email$zero)
+
+str(email$zero)
+
+# make zero a factor and set the levels, TRUE first, then FALSE
+email$zero = factor(email$zero, 
+                    levels = c("TRUE", "FALSE"))
+
+levels(email$zero)
+
+email %>%
+  ggplot(aes(x = zero)) +
+  geom_bar() +
+  facet_wrap(~spam, labeller = label_both)+
+  ggtitle("Zero Exclaimness for spam and non-spam emails")
+
+```
+
+
+## Explore number feature
+
+What's in a number 
+Turn your attention to the variable called number
+
+* read more about it by pullin up the help file ?email
+
+To explore the association between this variable and spam, select
+and construct an informative plot.
+For illustrating relationships between categorical variables, you've
+seen 
+
+* Faceted barcharts
+* Side-by-side barcharts
+* Stacked and normalized barcharts
+
+**Let's practice constructing a faceted barchart**
+
+number variable
+Factor variable saying whether there was no number, 
+a small number (under 1 million), or a big number.
+
+
+```{r}
+# Construct a faceted barchart of the associatin between number and spam
+
+str(email$number)
+
+table(email$number)
+
+```
+
+Reorder the levels of number so that they preserve the natural ordering of "none", then "small", then "big".
+
+Construct a faceted barchart of the association between number and spam.
+
+```{r}
+# Reorder levels
+email$number <- factor(email$number, 
+                       levels = c("none", "small", "big"))
+
+# Construct plot of number
+ggplot(email, aes(x = number)) +
+  geom_bar() +
+  facet_wrap(~spam, labeller = label_both)
+
+```
+
+What's in a number interpretation
+Which of the following interpretations of the plot is not valid?
+
+Possible Answers
+Given that an email contains a small number, 
+it is more likely to be not-spam.
+
+Given that an email contains no number, 
+it is more likely to be spam.
+(Answer - more likely to be not-spam)
+
+Given that an email contains a big number, it is more likely to be not-spam.
+
+Within both spam and not-spam, the most common number is a small one.
+
+# Conclusion
+
+## Our goal
+
+In this course on exploratory data analysis
+
+* our goal is to get you comfortable exploring new dataset
+and provide a sense of considerations and techniques needed
+to find the most important structure in your data
+
+## Piechart vs Bar charts
+
+* we started with categorical data, often the domain of the piechart
+and hopefully convinced that barcharts are a useful tool in finding 
+associations between variables in comparing levels to one another
+
+## Faceting vs. Stacking
+
+* we saw how the story can change depending on whethe we're visualizing 
+counts or proportions
+* from there we moved on to numerical data
+* and a collection of graphical techniques that are important
+the histogram, the density plot, and the box plot
+* each has it's strengths and weaknesses
+* and in the third chapter we discuss the common numerical
+measures of a distribution 
+* measures of center(mean median mode), 
+* measures of variablity (IQR, sd), 
+* measures of shape (density plot - left, right skew, uniform, modal, bimodal, 
+multimodal)
+* plus presense of outliers (boxplot)
+* use of combination of group_by and summarize to compute statistics
+on different subsets of data
+
+
+
