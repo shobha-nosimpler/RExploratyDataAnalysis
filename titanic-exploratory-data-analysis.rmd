@@ -1,0 +1,1429 @@
+---
+title: "titanic-exploratory-data-analysis"
+author: "shobha mourya"
+date: "March 4, 2019"
+output: 
+  html_document:
+    toc: true
+    number_sections: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Exploratory Data Analysis
+
+**Analysis of Titanic Passenger Surival**
+
+Using Titanic dataset
+
+**Using dplyr R package**
+
+* for data wrangling and feature engineering
+
+* dplyr makes you much more productive and far more intuitive
+
+* Look at the help resources
+?dplyr
+
+* dplyr: a grammar of data manipulation collection of functions that makes working with data 
+
+
+##Why do feature engineering?
+
+In most Data Science scenarios, Feature Engineering is paramount
+
+* Feature engineering often trumps algorithms, more data, parameter tuning, etc. 
+
+Data Scientist spend 60-80% of their time on being data janitors
+
+* getting data, understanding data, cleaning data, feature engineering commonly 
+referred to as data wrangling
+
+Faster data wrangling == more business value!
+
+* if you can do data wrangling faster - you can compete much
+much more effective
+
+*To win Kaggle - feature engineering is most important*
+
+
+In business textual data is more than numeric data
+categorical data is more common
+categorical data - think of dropdown with US states discrete variables
+It is important to learn to work with string data
+
+
+## Types of Joins
+
+### left_join 
+
+* all rows of primary table and matching rows of right
+
+### right_join 
+
+* all rows of secondary table and only matching rows of primary table
+
+### inner_join 
+
+* only match rows from primary and secondary tables
+
+### full_join 
+
+* all rows from both tables and matching rows
+
+### semi_join 
+
+* rows & columns only from primary table that have matching in secondary table
+* no data from second table is shown
+
+### anti-join 
+
+* rows & columns from primary table that don't have matches in second table
+
+
+## What is Imputation? 
+
+* It is data cleansing step of data analysis in which we deduce the missing (NA) values 
+* or values that are incorrect based on the domain knowledge of the case study. 
+
+For example, in the Titanic Passenger Survival dataset, there are many observations with missing 'Age' values and there are observations where 'Fare' is zero. 
+After analysing we use generalization to assign the mean/median value based on the similarity of the missing data point wrt to other data points.
+
+## Steps for Imputing missing values
+
+We mostly followed the below step in our imputation process:
+
+### Stats subset
+
+To understand the distribution of the feature we want to impute we create a subset of statistical measures like min, max, mean, median, IQR, variance(var), 
+standard deviation (sd), sum/count etc. 
+
+### Analyse stats
+
+In this step, we view the statistics subset to analyse what would be the best value to assign, mean or median, for imputation. If the feature distribution is not skewed, that is there is not much variation between the min/max, we can use the mean for the missing values. However, if the distribution has extreme values we can use median. 
+Note. Mean is a computed value affected by min and max hence in case of skewed data median is a better generalisation than mean for missing values.
+
+### Indicator variable
+We create an indicator variable with values Y (for yes) and N (for no) to serve as a flag to indicate if the observation has imputed values for a specific variable. 
+For example, variable 'AgeMissing' indicates whether age is imputed or not. 
+This helps in reverse engineer if at all we need to the original value in later 
+stages of analysis or while building the prediction model.
+
+### Lookup table
+
+After we have decided on what statistics/values to use for imputation we create 
+a lookup table with the new values and the common feature by which we will join the lookup table with the original table. If we're dealing with GroupWise imputation you might have to consider adding the group column and the common columns. 
+For example, 'Fare' depends on the passenger class - price of first class is bound to be more than other classes and hence mean of the first class will be different than the mean of other classes.
+
+### Left Join the lookup subset
+
+Join the original dataset with the lookup subset using the appropriate join columns. This step adds the new columns to the original dataset - you can crosscheck using the names command.
+
+### Impute the values
+
+Use the mutate dplyr command to assign the new values to the feature being imputed based on the appropriate conditions. For example, use the indicator flag and then apply the condition.
+
+### Crosscheck 
+
+It is important to cross check that all the imputations have been applied correctly. 
+Use summary command on the imputed feature to see if there are any NAs or wrong values.
+If there are errors, then revisit the code and check the conditions in mutate command.
+
+### Remove the additional columns
+
+After assigning the appropriate statistic/value to the missing values using 
+lookup table column values, their purpose is served and they should be removed 
+from the original dataset. Use select(-column) or set the column to NULL to remove the columns.
+
+
+# Analyse train dataset
+
+Load the packages
+
+```{r}
+#install.packages("dplyr")
+#install.packages("ggplot2")
+#install.packages("stringr")
+
+library(dplyr)
+library(ggplot2)
+library(stringr)
+
+# Load raw data
+path = "C:/Users/shobha/Documents/RExploratyDataAnalysis"
+train = read.csv(paste0(path,"/dataFiles/train.csv"), header=TRUE)
+
+dim(train)
+
+str(train)
+glimpse(train)
+names(train)
+
+#View(train)
+```
+
+## Variables
+
+### PassengerId 
+
+It is primary key not useful for ML algorithm
+
+###Survived 
+
+It is our label
+It is the dependent variable we are trying to predict
+Other variables are predictors - we need to feature engineer on predictors
+
+###Name 
+
+It is string variable - scope for feature engineer
+
+### Sex and Age 
+
+Are imp if women and children first is to be true
+
+### Sibsp
+
+Sibling and Spouse 
+could mean travelling with spouse or sibling 
+
+###  Parch
+
+Parent child 
+could mean traveling with parent or child
+
+# Analyse test dataset
+
+```{r}
+test = read.csv(paste0(path,"/dataFiles/test.csv"), header=TRUE)
+dim(test)
+```
+
+It has one less column
+
+```{r}
+names(test)
+```
+
+survived column is removed because we have to predict the survived label with 
+our model
+
+In order to increase our dataset we will comibine the test and train datasets.
+First lets add the column Survived with None value for test dataset
+
+```{r}
+
+test.survived = test %>% mutate(survived = "None")
+dim(test.survived)
+names(test.survived)
+
+test.survived$survived = as.factor(test.survived$survived)
+train$survived = as.factor(train$survived)
+
+str(test.survived)
+str(train)
+
+# you can also use rbind
+data.combined = train %>% union_all(test.survived)
+
+# data.combined = rbind(train, test.survived)
+# dim(data.combined)
+# str(data.combined)
+
+dim(data.combined)
+```
+
+891 + 418 = 1309
+
+Let's start with data exploration.
+We will analyse the features one by one to see if they have any predictive power.
+
+# Combine the train and test datasets 
+
+We will use this dataset for comparing operations without dplyr
+
+```{r}
+glimpse(data.combined)
+
+# convert survived, pclass to factor
+data.combined$survived = as.factor(data.combined$survived)
+data.combined$pclass = as.factor(data.combined$pclass)
+
+glimpse(data.combined)
+
+
+# Let's see the distribution of survival rates
+table(data.combined$survived)
+
+
+names(data.combined)
+```
+
+# Analyse the variables for their predictive power
+
+## Explore pclass feature
+
+```{r}
+# Distribution of passengers across classes
+table(data.combined$pclass)
+
+round(prop.table(table(data.combined$pclass))*100)
+```
+
+More than 50% passengers traveled in third class.
+Our Hypothesis is that rich folks, traveling in first class, survived at a higher rate
+
+Let's visualize pclass distribution wrt to survival for train dataset
+
+```{r}
+ggplot(train, aes(x = pclass, fill=survived)) +
+  geom_bar() +
+  xlab("PClass") +
+  ylab("Total Count") +
+  ggtitle("Survival rate wrt PClass")
+```
+
+### Interprete 
+
+The visualization shows that proportion of perished is higher in second and 
+third class as compared to first class. So pclass seems to have good predictive power.
+
+## Explore name feature
+
+Now, let's examine the name feature
+
+Examine the first few names in the training data set
+
+The names have lastname, title. firstname middlename (maiden name)
+
+```{r}
+head(as.character(train$name))
+
+tail(as.character(train$name))
+
+#View(head(data.combined, 20))
+
+# How many unique names are there across both train & test?
+length(unique(as.character(data.combined$name)))
+
+
+length(data.combined$name)
+```
+
+1307 out of 1309, so there are two duplicate names. 
+
+```{r}
+dup.names = data.combined[(duplicated(data.combined$name) == TRUE),]
+
+dup.names
+```
+
+
+### Create new feature title from name
+
+Let's create a new feature title from the name variable by extracting
+the pattern which has characters followed by .
+
+Regex - starts with char and followed by .
+pattern - one or more letter [a-zA-Z] and immediately a dot
++ --> one of more, * --> zero or more
+
+First let's try an example
+
+
+```{r}
+my_name = " Shobha, Ms. Mourya Shivnarayan"
+
+my_title = str_extract(my_name, pattern = "[a-zA-Z]+\\.")
+my_title
+
+my_name = " Shobha, Miss. Mourya Shivnarayan"
+my_title = str_extract(my_name, pattern = "[a-zA-Z]+\\.")
+my_title
+
+
+my_name = " Shobha, . Mourya Shivnarayan"
+my_title = str_extract(my_name, pattern = "[a-zA-Z]+\\.")
+my_title
+
+train = train %>%
+  mutate(title = str_extract(name,"[a-zA-Z]+\\."))
+
+table(train$title)
+
+length(unique(train$Title))
+```
+
+There are a lot of titles with only 1 occurence, Now this is not good for ML algo
+for example, if there is one Jonkheer who perished then the ML algo will 
+always zero-down on that and predict that a passenger with title Jonkheer will perish this is a clear case of overfitting maybe there were other Jonkheers who did survive but we don't have that data in our training set so we can collapse titles into more close title.
+
+Title is indicative of Sex and Age. 
+
+First create a df with two columns -  Title and New.Title 
+Which is like a lookup table to map titles, for example Capt. Col. etc should be 
+mapped to Mr.
+
+
+Then for both dfs match on title and join the new column New.Title
+
+Condense titles down to small subset 
+left join with lookup table is a very general
+pattern for replacement in dplyr
+old value, new values to map
+
+
+```{r}
+titles.lookup = data.frame( title = c("Mr.", "Capt.",
+                                      "Col.", "Don.",
+                                      "Dr.", "Jonkheer.",
+                                      "Major.", "Rev.",
+                                      "Sir.", "Mrs.",
+                                      "Dona.", "Lady.",
+                                      "Mme.", "Countess.",
+                                      "Miss.","Mlle.", "Ms.",
+                                      "Master."),
+                            new.title=c(rep("Mr.",9),
+                                        rep("Mrs.",5),
+                                        rep("Miss.",3),
+                                        "Master."),
+                            stringsAsFactors = FALSE)
+
+#View(titles.lookup)
+
+# Replace Titles using lookup table join lookup df for matching titles with train df
+
+train = train %>%
+  left_join(titles.lookup, by = "title")
+
+table(train$new.title)
+
+
+# Let's replace Title with New.Title and remove New.Title
+
+train = train %>%
+  mutate(title = new.title) %>%
+  select(-new.title)
+
+table(train$title)
+
+# Specific cases is overfit - avoid avoid avoid overfitting focus on generalization
+
+# Alternatively you could do the above in one dplyr pipeline
+
+train = train %>%
+  left_join(titles.lookup, by = "title") %>%
+  mutate(title=new.title) %>%
+  select(-new.title)
+
+
+table(train$title)
+
+```
+
+Now we have four titles. Double-check our work to see if titles are assigned correctly 
+that is no male is assigned Miss or Mrs and no female Mr. or Master
+
+
+
+```{r}
+train %>%
+  filter((sex == "female" & (title == "Mr." | title == "Master.")) |
+           (sex == "male" & (title == "Mrs." | title == "Miss"))) 
+
+
+#or
+
+table(train$title, train$sex)
+
+
+#output shows one Mr is female, that's because we assigned title Mr. to Dr.
+
+train = train %>% 
+  mutate(title = ifelse((title == "Mr." & sex == "female"), "Mrs.",title))
+
+train %>%
+  filter((sex == "female" & (title == "Mr." | title == "Master.")) |
+           (sex == "male" & (title == "Mrs." | title == "Miss"))) 
+
+
+table(train$title, train$sex)
+
+```
+
+Miss - could be unmarried female child or adult
+
+
+### Analysing data.combined without using dplyr
+
+```{r}
+# Analysing combined data 
+title = sapply(data.combined$name, str_extract, pattern = "[a-zA-Z]+\\.")
+head(title)
+
+#View(title)
+
+str(title)
+
+data.combined$title = title
+
+glimpse(data.combined)
+
+# How many unique titles
+unique(data.combined$title)
+
+table(data.combined$title)
+
+```
+
+* the most common titles are Master 61, Miss 260, Mr. 757, Mrs 197 
+* Other titles are rare and single digit 
+* for now we will assign the rare titles as other and visualize the distribution
+wrt survived label
+
+
+```{r}
+common_titles = c("Mr.", "Mrs.", "Miss.", "Master.")
+data.combined.test = data.combined %>% 
+  mutate(title = ifelse(title %in% common_titles, title, "other"))
+
+table(data.combined.test$title)
+
+glimpse(data.combined.test)
+
+data.combined.test$title = as.factor(data.combined.test$title)
+
+str(data.combined.test$title)
+
+data.combined = data.combined.test
+rm(data.combined.test)
+
+
+glimpse(data.combined)
+
+#Since we only have survived lables for the train set, only use the first 891 rows
+
+ggplot(data.combined[1:891,], aes(x=title, fill=survived)) +
+  geom_bar() +
+  ggtitle("Survival rate wrt Title")
+
+```
+
+### Interpretation
+
+The survival for Mr. is staggeringly lower compared to other titles.
+Let's add pclass to see if sruvival of males traveling by first class is better.
+
+```{r}
+ggplot(data.combined[1:891,], aes(x=title, fill=survived)) +
+  geom_bar() +
+    facet_wrap(~pclass) +
+    ggtitle("Survival by Pclass and Title")
+
+```
+
+
+## Explore sex feature
+
+Let's explore the sex variable now
+
+```{r}
+str(data.combined$sex)
+
+table(data.combined$sex)
+
+table(data.combined$sex, data.combined$title)
+
+# Let's visualize
+
+ggplot(data.combined[1:891,], aes(x = sex, fill = survived)) +
+  geom_bar() +
+  facet_wrap(~pclass)+
+  ggtitle("Survival by Pclass and Sex")
+
+```
+
+### Interpretation
+
+Looks like sex is a very strong predictor of survival.
+In all the three pclasses male survival rate is low. 
+Females in first and second class have very high survival rate whereas in
+class 3 it is almost 50/50
+
+
+
+## Explore age feature
+
+Let's explore the numeric variable age
+
+
+
+```{r}
+str(data.combined$age)
+
+summary(data.combined$age)
+```
+
+There are many missing values
+
+Just to be thorough, take a look at survival rates broken out by sex, pclass, and age
+it is a numerical variable so we will plot histogram
+
+
+```{r}
+
+ggplot(data.combined[1:861,], aes(x=age, fill=survived)) +
+  geom_histogram() +
+  facet_wrap(~ sex + pclass) +
+  ggtitle("Survival by age and pclass")
+
+```
+
+### Interpretation
+
+There is lot of Age missing so we impute Age based on title and age
+average or median as replacement value or avg in some cases and median in some cases
+
+
+let's see the age statistics wrt Pclass and Title the older you are the wealthier you are stats and NAs for the group
+
+
+```{r}
+age.stats = train %>%
+  group_by(title,pclass) %>%
+  summarize(age.min = min(age, na.rm = T),
+            age.max = max(age, na.rm = T),
+            age.mean = mean(age, na.rm = T),
+            age.median = median(age, na.rm = T),
+            age.na.count = sum(is.na(age)),
+            age.var = var(age, na.rm = T),
+            age.sd = sd(age, na.rm = T),
+            age.IQR = IQR(age, na.rm = T)) %>%
+  arrange(title,pclass)
+
+#View(age.stats)
+
+table(train$pclass)
+
+```
+
+
+Rule: When mean and median are close, it is better to use mean
+because it a good summary statistic
+
+Miss is an overloaded title, it covers both unmarried adult women as well as 
+female children. So Miss is problamatic for Title as proxy for Age.
+So for all titles except Miss we use mean age as proxy.
+
+Rule
+Imputation Steps
+Create Tracking feature/ indicator variable- Y for NA else N
+lookup table
+
+```{r}
+train$age.missing = ifelse(is.na(train$age), "Y","N")
+
+table(train$age.missing)
+
+#View(train)
+```
+
+For matching Pclass and Title we want to replace NA age with mean / median Age
+So we create a new df with Pclass, Title, mean Age, median Age
+then join original df with this df on Pclass and Title
+then replace Age in original with either mean Age or median Age
+and remove the mean Age and median Age
+
+
+```{r}
+age.lookup = age.stats %>%
+  select(pclass,title,age.mean,age.median)
+
+#View(age.lookup)
+
+
+train = train %>%
+  left_join(age.lookup, by=c("pclass","title")) %>%
+  mutate(age = ifelse(age.missing == "Y",
+                      ifelse(title == "Miss.", age.median, age.mean),
+                      age) ) %>%
+  select(-age.median, -age.mean)
+
+#View(train)
+```
+
+
+We engineered feature title as it was proxy for gender and age
+
+We imputed the below features
+
+zero fares - median fares based on Pclass
+missing age - mean(except Miss)/median(Miss) age based on title and Pclass
+
+Steps for imputing or replacing features
+
+Create Tracking feature as indicator for replacing values
+- it helps to reverse engineer to original value if we need to later
+
+Create a lookup table for new features using join
+- so we need to add the matching columns to the lookup table
+- left join original df with new
+- mutate to do the actual replacement
+- remove the lookup variables from original df
+
+Here we'll go ahead and create a whole lot of new features
+
+look at impute Age distribution all up 5 % to 100% step by 5 percent
+20 buckets
+
+```{r}
+quantile(train$age, probs = c(0.25,0.5,0.75))
+
+quantile(train$age, probs=seq(0.05, 1, 0.05))
+```
+
+5 % have age 5.3 or below
+10 % have age 16 or below
+15 % have age 18 or below
+80% have age 40 - so it is skewed to younger
+
+Survival based on age - children, adults, elderly
+
+### Analysing combined data without dplyr, just for comparison
+
+Let's see if our titles are good indicator of age and sex
+
+
+```{r}
+table(data.combined$title)
+
+boys = data.combined %>% filter(title == "Master.")
+summary(boys$age)
+
+```
+
+Maximum age is 14.5 years, that could be considered upper limit for age for title Master.
+
+We know that "Miss." is more complicated, let's examine further
+
+```{r}
+misses = data.combined %>% filter(title == "Miss.")
+summary(misses$age)
+dim(misses)
+
+# Get subset of misses with survived not None and age is not NA
+misses.survived = misses %>% filter(!is.na(age) & survived != "None")
+dim(misses.survived)
+
+# on x-axis we have age, so histogram plot, facet wrap with categorical variables pclass
+ggplot(misses.survived, aes(x = age, fill = survived)) +
+  geom_histogram() + 
+  facet_wrap(~pclass) + 
+  ggtitle("Survival for Miss. by Age broken down by Pclass")
+  
+# set the binwidth to 5 and plot the histogram
+ggplot(misses.survived, aes(x = age, fill = survived)) +
+  geom_histogram(binwidth = 5) + 
+  facet_wrap(~pclass) + 
+  ggtitle("Survival for Miss. by Age broken down by Pclass")
+
+```
+
+Female children may have better survival rate than adult females could be a candidate for feature engineering later
+
+
+```{r}
+#View(misses)
+head(misses)
+
+# Let's find females traveling alone, that is without parents, siblings, spouse
+misses.alone = misses %>% filter(parch == 0 & sibsp == 0)
+
+dim(misses.alone)
+
+summary(misses.alone$age)
+
+length(which(misses.alone$age <= 14.5))
+```
+
+## Explore sibsp variable
+
+Let's explore the sibsp variable using data.combined dataset
+
+
+```{r}
+str(data.combined$sibsp)
+
+summary(data.combined$sibsp)
+
+# Can we treat as a factor?
+length(unique(data.combined$sibsp))
+
+unique(data.combined$sibsp)
+
+table(data.combined$sibsp)
+
+data.combined$sibsp <- as.factor(data.combined$sibsp)
+```
+
+Of the five variables we have explored before: names, from which we derived title,
+plcass, sex, age
+title represents age and sex and title & pclass have predictive power
+so let's visualize survival wrt sibsp broken down by title and pclass
+
+x-axis has sibsp which factor so bar plot facet wraped with other
+factor variables pclass and title
+
+```{r}
+ggplot(data.combined[1:891,], aes(x = sibsp, fill = survived)) +
+  geom_bar() +
+  facet_wrap(~pclass + title) +
+  ggtitle("Survival wrt sibsp broken down by Pclass and Title")
+```
+
+
+## Explore parch variable
+
+Let's explore the parch variable for data.combined dataset
+
+```{r}
+str(data.combined$parch)
+
+length(unique(data.combined$parch))
+
+unique(data.combined$parch)
+
+# convert it to factor and visualize to see if it has any predictive power
+data.combined$parch = as.factor(data.combined$parch)
+str(data.combined$parch)
+table(data.combined$parch)
+```
+
+Most passengers are traveling alone, there are 2 passengers with parch size 9
+
+x-axis parch which is factor so bar plot broken down by categorical 
+variable pclass and title
+
+```{r}
+ggplot(data.combined[1:891, ], aes(x = parch, fill = survived)) +
+  geom_bar() +
+  facet_wrap(~pclass + title) +
+  ggtitle("Survival wrt parch broken down by pclass and title")
+  
+```
+
+### New feature family size
+
+Let's create a new feature family_size
+
+A passenger who has parch or sbsp value non-zero implies is traveling with family
+sbsp is for spouse and parch is for parch
+If passenger is traveling with spouse, sbsp is 1 and if they have children the parch 
+will have number of children traveling with them.
+If pasenger is child parch is either 0 or 1 or 2, if passenger is adult then parch is 
+number of children
+
+If passenger is traveling with sibling, sbsp is number of siblings and parch is number 
+of parents 0 or 1 or 2 
+
+So family size siblings/spouse plus parch plus the individual passenger count
+
+
+```{r}
+# Let's view family with size 8
+
+big_family = data.combined %>% filter(parch == 9)
+#View(big_family)
+
+# The ticket number is CA. 2343, let's see all passengers with that ticket number
+
+big_family_members = data.combined %>% filter(ticket == "CA. 2343")
+#View(big_family_members)
+big_family_members
+```
+
+Mr and Mrs Sage are traveling with 9 children, each child has 8 siblings 
+so the family size is 9 children plus the couple that is 11
+
+```{r}
+str(data.combined$parch)
+
+str(data.combined$sibsp)
+
+#Since we have parch and sibsp are factors, we have to convert the levels
+#to numeric to add
+
+as.numeric(big_family_members$parch)
+```
+
+This returns the value of level assigned to the factor starting from number 0, 1 and
+so on up to how many distinct values are there for that variable
+
+
+```{r}
+# Values of factors, can be converted to character then numeric
+as.character(big_family_members$parch)
+as.numeric(as.character(big_family_members$parch))
+
+as.numeric(big_family_members$sibsp)
+#This also returns the level assigned to the value of factor
+
+# To get the actual value, get the character value then convert it to numeric 
+as.character(big_family_members$sibsp)
+as.numeric(as.character(big_family_members$sibsp))
+
+#Let's apply for the entire dataset to get the family size
+temp.parch = as.numeric(as.character(data.combined$parch))
+head(temp.parch)
+str(temp.parch)
+
+temp.sibsp = as.numeric(as.character(data.combined$sibsp))
+head(temp.sibsp)
+str(temp.sibsp)
+
+data.combined$family.size = as.factor(temp.parch + temp.sibsp + 1)
+#View(head(data.combined))
+head(data.combined)
+
+big_family_members = data.combined %>% filter(ticket == "CA. 2343")
+#View(big_family_members)
+big_family_members
+
+# Let's visualize to see if family.size has any predictive power
+#x-axis family size which is factor so use bar plot broken by pclass and title
+
+ggplot(data.combined[1:891,], aes(x = family.size, fill = survived)) +
+  geom_bar() +
+  facet_wrap(~ pclass + title) +
+  ggtitle("Survival wrt family size broken by pclass and title") 
+
+```
+
+
+
+## Explore ticket feature
+
+Let's explore the ticket variable.
+
+Tickets were bought for group not individual tickets for each seat as in modern day
+based on individuals with same ticket.
+Fare can be calculated for each individual based on title and age
+
+
+```{r}
+# group by tickets and engineer below 13 features 
+
+ticket.lookup = train %>%
+  group_by(ticket) %>%
+  summarize(group.count = n(),
+            avg.fare = max(fare)/n(),
+            female.count = sum(sex == "female"),
+            male.count = sum(sex == "male"),
+            child.count = sum(age < 18),
+            elderly.count = sum(age > 54.0),
+            female.ratio = sum(sex == "female")/n(),
+            male.ratio = sum(sex == "male")/n(),
+            child.ratio = sum(age < 18)/n(),
+            elderly.ratio = sum(age > 54.0)/n(),
+            female.child.ratio = ( sum(age <18) +
+                                     sum(sex == "female" & age >= 18))/n(),
+            min.age = min(age),
+            max.age = max(age))
+
+
+
+group_tickets = train %>% 
+  group_by(ticket) %>% 
+  summarise(n = n()) %>%
+  filter( n > 1)
+
+glimpse(group_tickets)
+sum(group_tickets$n)
+
+group_tickets %>% filter(ticket == "3101295")
+
+#View(group_tickets %>% filter(ticket == "3101295"))
+head(group_tickets %>% filter(ticket == "3101295"))
+
+
+single_tickets = train %>% 
+  group_by(ticket) %>% 
+  summarise(n = n()) %>%
+  filter( n == 1)
+sum(single_tickets$n)
+
+glimpse(single_tickets) 
+
+#View(ticket.lookup)
+head(ticket.lookup)
+
+names(train)
+
+#Double-check our work
+ticket.lookup %>% filter(ticket == "3101295")
+
+#View(ticket.lookup %>% filter(ticket == "3101295"))
+head(ticket.lookup %>% filter(ticket == "3101295"))
+
+#View(train %>% filter(ticket == "3101295"))
+head(train %>% filter(ticket == "3101295"))
+
+
+# Now lets add all the new features to the original df
+train = train %>%
+  left_join(ticket.lookup, by = "ticket")
+
+#View(train %>% filter(ticket == "3101295"))
+head(train %>% filter(ticket == "3101295"))
+
+names(train)
+
+```
+
+
+
+### Analysing ticket variable for combined data without dplyr
+
+
+```{r}
+str(data.combined$ticket)
+
+head(data.combined$ticket)
+
+data.combined$ticket[1:20]
+```
+
+There's no immediately apparent structure in the data, let's see if we can find some.
+We'll start with taking a look at just the first char for each. 
+
+```{r}
+# if empty ticket string replace with space o.w extract the first character
+ticket.first.char = ifelse(data.combined$ticket == ""," ", 
+                           substr(data.combined$ticket,1,1))
+
+#View(ticket.first.char)
+head(ticket.first.char)
+sum(is.na(ticket.first.char))
+length(unique(ticket.first.char))
+
+#Let's add this as new feature and convert to factor
+data.combined$ticket.first.char = as.factor(ticket.first.char)
+
+
+# First high-level plot 
+#x-axis ticket.first.char is factor so bar plot, fill with label survived
+
+ggplot(data.combined[1:891,], aes(x = ticket.first.char, fill = survived)) +
+  geom_bar() +
+  ggtitle("Survival wrt first character of ticket")
+
+#Looks like ticket number might be predictive, let's break down further wrt pclass
+ggplot(data.combined[1:891,], aes(x = ticket.first.char, fill = survived)) +
+  geom_bar() +
+  facet_wrap(~pclass) +
+  ylim(0,300) +
+  ggtitle("Survival wrt first character of ticket and pclass") 
+  
+# Lastly, see if we get a pattern when using combination of pclass & title
+ggplot(data.combined[1:891,], aes(x = ticket.first.char, fill = survived)) +
+    geom_bar() +
+    facet_wrap(~pclass+title) +
+    ggtitle("Survival wrt first character of ticket, pclass and title") 
+
+
+ggplot(data.combined[1:891,], aes(x = ticket.first.char, fill = survived)) +
+    geom_bar() +
+    facet_wrap(~pclass+title) +
+    ylim(0,200) +
+    ggtitle("Survival wrt first character of ticket, pclass and title") 
+    
+```
+
+
+## Explore fares feature
+
+Let's explore the fares variable to see if it has any predictive power to determine survival of passengers
+
+
+```{r}
+str(data.combined$fare)
+
+summary(data.combined$fare)
+
+# Visualization
+
+# Can't make fare a factor, treat as numeric & visualize with histogram  
+"
+x-axis fare is numeric so histogram, let's just see the distribution for fare
+"
+ggplot(data.combined[1:891,], aes(x = fare))    +
+  geom_histogram() +
+  ggtitle("Survival wrt fare")
+
+# Let's check to see if fare has predictive power   
+ggplot(data.combined[1:891,], aes(x = fare, fill = survived))    +
+  geom_histogram(binwidth = 5) +
+  facet_wrap(~pclass + title) +
+  ylim(0,50) +
+  ggtitle("Survival wrt fare")   
+
+```
+
+### Imputate missing fares
+
+What's with zero fares
+How many passengers have zero fare? Get the subset 
+
+```{r}
+zero.fare = train %>% filter(fare == 0.0)
+
+#View(zero.fare)
+head(zero.fare)
+
+dim(zero.fare)
+```
+
+15 out of 891 
+
+They're all males traveling alone not specific to any class and they all
+embarked in 'S'. All but one perished.
+This is a classification problem to train model to accurately predict label Survival
+If we only had this data or zero.fare, 14 out 15 perished, so if we predicted
+that if fare is zero predict perished the model would be 93 % accurate
+
+14/15*100
+
+But this data is so skewed, all males, all embarked S.
+So let's explore this data further
+
+```{r}
+# Let's get the totals by Pclass
+# n() is function in dplyr, total number of observations in each group
+
+zero.fare.pclass = zero.fare %>%
+  group_by(pclass) %>%
+  summarise(total = n()) %>%
+  arrange(desc(total))
+```
+
+summarize - how many observations in each groups. 
+How many observations in each Pclass
+
+```{r}
+zero.fare.pclass
+```
+
+So it is clear that zero.fare is not specific to any class
+"
+What is the distribution of fare for passengers similar to fare 0.0
+so that we can replace the 0.0 value for example, replace 0 fare for male in class 3
+with mean or median fare of males in class 3
+
+zero fares are all males travelling alone so we can say they're all adult males
+
+We can find the avg fare for adult males travelling alone
+
+Most of the zero fares for males, that is title Mr.
+So we use this correlation between title and fares to impute the zero fares
+
+Now going back to zero fares impute zero fares 
+we'll use replacement , you can also use a model to predict the fares
+for males group by Pclass.
+Beauty of dplyr is that the results can be stored as dataframe
+
+
+Finding the summary of fares for males grouped by Pclass.
+summarise is for aggregate functions
+we will see which of the statistics we can use to impute fare
+
+```{r}
+mr.fare.stats = train %>%
+  filter(title == "Mr.") %>%
+  group_by(pclass) %>%
+  summarise(fare.Min = min(fare),
+            fare.Max = max(fare),
+            fare.Median = median(fare),
+            fare.Var = var(fare),
+            fare.SD = sd(fare),
+            fare.IQR = IQR(fare))
+
+
+#View(mr.fare.stats)
+head(mr.fare.stats)
+
+str(mr.fare.stats)
+
+#The above can be done as below
+summary(train$fare[train$title == "Mr." & train$pclass == 1])
+```
+
+And you have to repeat for each Pclass,that for 2, 3 and it won't be in tabular 
+format, so the above code is definitely more elegant because we can see the results 
+in data frame
+
+```{r}
+#mean/median
+11.29976/7.8958
+```
+
+1.43111
+amost 1.5 times bigger
+
+```{r}
+11.29976/7.8958*100
+```
+
+mean is almost 43 percent more than median
+fare is same for each member of family
+so big families may have skewed the fare
+so it makes sense to use median to impute fare
+
+
+In order to not lose the original data 
+so that if imputed values do not improve prediction accuracy
+we can revert to original values,we use tracking features for that
+
+
+Create "tracking feature" for those records that originally had 0.0 for the Fare variable. Common practise in Data Science to identify imputed value.
+
+```{r}
+train$fare.zero = ifelse(train$fare == 0.0, "Y", "N")
+
+head(train)
+
+table(train$fare.zero)
+```
+
+Impute the zero fares using the lookup table new column has median.
+
+```{r}
+#create the new df with median fare for mr. grouped by Pclass
+
+zero.fare.lookup = train %>%
+  filter(title == "Mr.") %>%
+  group_by(pclass, title) %>%
+  summarize(new.fare = median(fare))
+
+#View(zero.fare.lookup)
+head(zero.fare.lookup)
+
+```
+
+Now for each matching Mr. and Pclass add the New.Fare value
+update zero Fare with New.Fare and then remove New.Fare
+
+```{r}
+train = train %>%
+  left_join(zero.fare.lookup, by = c("pclass", "title")) %>%
+  mutate(fare = ifelse(fare == 0.0, new.fare, fare)) %>%
+  select(-new.fare)
+
+#View(train)
+head(train)
+
+train.zero.fare = train %>%
+  filter(fare == 0.0)
+
+#View(train.zero.fare)
+head(train.zero.fare)
+
+train.zero.fare = train.zero.fare %>%
+  select(fare)
+
+# there are no zero fares
+rm(train.zero.fare)
+
+summary(train$fare)
+
+```
+
+## Explore cabin feature 
+
+Let's explore the cabin variable to see if has any predictive power to determine survival of passengers
+
+```{r}
+str(data.combined$cabin)
+
+sum(complete.cases(data.combined$cabin))  
+
+head(data.combined$cabin)
+
+#Replace the empty cabins with  "U"
+data.combined = data.combined %>% mutate(cabin = ifelse(cabin == "","U", cabin))
+
+head(data.combined$cabin)
+
+# Take a look at the first char 
+cabin.first.char = substr(data.combined$cabin,1,1)
+
+str(cabin.first.char)
+
+length(unique(cabin.first.char))
+
+cabin.first.char = as.factor(cabin.first.char)
+
+data.combined$cabin.first.char = cabin.first.char
+
+names(data.combined)
+
+head(data.combined$cabin.first.char)
+
+# First high level plot
+# x-axis cabin.first.char is a factor so bar plot
+
+ggplot(data.combined[1:891,], aes(x = cabin.first.char, fill = survived)) +
+  geom_bar() +
+  ggtitle("Survical wrt first character of cabin")
+
+
+ggplot(data.combined[1:891,], aes(x = cabin.first.char, fill = survived)) +
+  geom_bar() +
+  facet_wrap(~pclass) +
+  ggtitle("Survical wrt first character of cabin, plcass and title")
+
+# Does this feature improve upon pclass + title?
+ggplot(data.combined[1:891,], aes(x = cabin.first.char, fill = survived)) +
+  geom_bar() +
+  facet_wrap(~pclass+title) +
+  ggtitle("Survical wrt first character of cabin, plcass and title")
+
+
+# What about folks with multiple cabins?
+data.combined = data.combined %>% mutate(cabin.multiple = ifelse(
+  str_detect(cabin," "), "Y", "N"))
+
+
+head(data.combined$cabin.multiple)
+
+names(data.combined)
+
+length(unique(data.combined$cabin.multiple))
+
+data.combined$cabin.multiple = as.factor(data.combined$cabin.multiple)
+
+# x-axis cabin.multiple is factor so bar plot, broken by categorical variables
+# pclass and title
+
+ggplot(data.combined[1:891,], aes(x = cabin.multiple, fill = survived)) +
+  geom_bar() +
+  facet_wrap(~pclass + title) +
+  ggtitle("Survical wrt multiple cabins or not, plcass and title")
+
+```
+
+
+## Explore embarked feature
+
+```{r}
+str(data.combined$embarked)
+
+length(unique(data.combined$embarked))
+
+table(data.combined$embarked)
+
+data.combined$embarked = as.factor(data.combined$embarked)
+
+# Does survivability depend on where you got onboard the Titanic?
+#x-axis factor variable embarked so bar plot broken by categorical variables
+#pclass and title 
+
+ggplot(data.combined[1:891,], aes(x = embarked, fill = survived)) +
+  geom_bar() +
+  facet_wrap(~pclass + title) +
+  ggtitle("Survivability wrt embarked, plcass and title")
+
+```
+
+# Visualization
+
+The payoff
+Investigate the hypothesis that traveling with children might be predictive
+
+```{r}
+
+# Set up factors
+train$survived = as.factor(train$survived)
+train$pclass = as.factor(train$pclass)
+
+
+# Subset passengers traveling with children
+tickets.children = train %>%
+filter(child.count > 0)
+
+```
+
+## Visualize Survival rates for Ticket groups traveling with children
+
+{show survival of children pclass-wise
+  plot bar chart, fill by survived and faceted by Title
+  Give title to your plot Survival Rates for Ticket Groups Traveling
+  with children
+  Lable y-axis as Count of Passengers}
+
+
+```{r}
+
+ggplot(tickets.children, aes(x=pclass, fill=survived))+
+theme_bw() +
+geom_bar() +
+facet_wrap(~ title) +
+labs(y = "Count of Passengers",
+title = "Survival Rates for Ticket Groups Traveling with Children")
+
+#or 
+
+ggplot(tickets.children, aes(x=pclass, fill=survived))+
+theme_bw() +
+geom_bar() +
+facet_wrap(~ title) +
+ylab("Count of Passengers") +
+ggtitle("Survival Rates for Ticket Groups Traveling with Children")
+```
+
+All boys in first, second class survived, in 3rd one-third survivied
+almost same for Miss, Mrs
+for comparison, no children
+Subset passengers traveling with no children
+
+```{r}
+tickets.no.children = train %>%
+filter(child.count == 0)
+
+# Visualize
+ggplot(tickets.no.children, aes(x=pclass, fill = survived)) +
+theme_bw() +
+geom_bar() +
+facet_wrap(~ title) +
+labs(y = "Count of Passengers",
+title = "Survival Rates for Ticket Groups Traveling without Children")
+
+#or 
+
+ggplot(tickets.no.children, aes(x=pclass, fill = survived)) +
+theme_bw() +
+geom_bar() +
+facet_wrap(~ title) +
+ylab("Count of Passengers")+
+ggtitle("Survival Rates for Ticket Groups Traveling without Children")
+```
+
+path to save the data.combined dataset with all the new features to be used for exploratory modeling
+
+```{r eval=FALSE}
+path
+```
+
+```{r eval=FALSE}
+saveRDS(data.combined, paste0(path,"/RdsObjects/data.combined.rds"))
+```
+
+
+
+
+
+
+
+
+
